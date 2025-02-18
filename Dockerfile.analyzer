@@ -1,0 +1,21 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Copy files
+COPY analyzer/*.py .
+COPY analyzer/requirements.txt .
+COPY common/*.py ./common/
+COPY common/requirements.txt ./common/requirements.txt
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r ./common/requirements.txt
+
+# Default environment variables can be overridden at runtime
+ENV ANALYSIS_ID=""
+ENV GITHUB_URL=""
+ENV REDIS_HOST=""
+ENV REDIS_PORT=""
+
+CMD ["python", "./worker.py"]

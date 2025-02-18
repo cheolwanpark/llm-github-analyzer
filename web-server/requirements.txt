@@ -1,0 +1,4 @@
+docker==7.1.0
+fastapi==0.115.8
+redis==5.2.1
+uvicorn==0.34.0

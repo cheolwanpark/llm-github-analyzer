@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  # Allows the web container to spawn worker containers
+    depends_on:
+      - redis
+    networks:
+      - redis_net
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    networks:
+      - redis_net
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.analyzer
+    image: analyzer_worker
+    command: ["echo", "Worker image built"]
+    networks:
+      - redis_net
+
+networks:
+  redis_net:
+    name: redis_net
+    driver: bridge
