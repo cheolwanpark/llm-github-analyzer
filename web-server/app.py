@@ -35,6 +35,9 @@ def result(analyzer_id: str):
     analyzer = Analyzer.from_id(redis, analyzer_id)
     if not analyzer.exists():
         raise HTTPException(status_code=404, detail="Analyzer not found")
+    status = analyzer.get_status()
+    if status != AnalyzerStatus.DONE:
+        raise HTTPException(status_code=400, detail="Analyzer not finished")
     result = analyzer.get_result()
     return JSONResponse({
         "analyzer_id": analyzer_id,
@@ -47,7 +50,10 @@ def delete_analyzer(analyzer_id: str):
     if not analyzer.exists():
         raise HTTPException(status_code=404, detail="Analyzer not found")
     try:
-        analyzer.delete()
+        if analyzer.get_status() != AnalyzerStatus.DONE:
+            analyzer.delete()
+        else:
+            analyzer.delete_records()
         if analyzer.exists():
             raise "failed to delete"
         return JSONResponse({}, status_code=204)
