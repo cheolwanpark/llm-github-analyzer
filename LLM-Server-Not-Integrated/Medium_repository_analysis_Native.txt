@@ -1,0 +1,34 @@
+The project directory is structured with various subdirectories and files, each serving different purposes:
+
+AI-control-P3D:
+
+WorkspaceState.json: Contains settings or state information for the workspace.
+FileContainerIndex:
+
+Contains several .vsdx files, which are Microsoft Visio drawing files, each identified by a unique UUID.
+V17 and AI_Control:
+
+These directories are currently empty.
+AI_Control/RobTianq/AI_Control:
+
+Another level of nested directories that is also empty.
+AI_Control/FileContainerIndex:
+
+Contains a single .vsdx file.
+Properties:
+
+Includes .cs files for C# assembly and resource information, and .resx files for resource management.
+bin/Debug:
+
+Contains executable files and associated configuration files (AI_Control.exe, .config, .pdb), a DLL for SimConnect which interfaces with flight simulation software, and XML configuration files.
+obj/Debug and obj/Release:
+
+Contain various build files and caches for the .NET framework used during development in both debug and release modes.
+src:
+
+Source code files (*.cs) for the project, including main control scripts, interfaces for P3D simulation software, and utility scripts.
+log:
+
+Log files and images related to updates and scenarios within the project, documenting changes and configurations, with images and a markdown file explaining a method used.
+README:
+README.md: A markdown file providing an overview or documentation for the project.

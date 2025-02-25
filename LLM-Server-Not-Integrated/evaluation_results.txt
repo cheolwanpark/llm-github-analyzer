@@ -1,0 +1,32 @@
+Evaluation Results:
+{
+    "Easy_repository_analysis.txt": {
+        "BLEU": 0.0008903412231586182,
+        "ROUGE": {
+            "rouge-1": 0.3282275711159737,
+            "rouge-2": 0.13186813186813187,
+            "rouge-L": 0.16192560175054704
+        }
+    },
+    "Medium_repository_analysis.txt": {
+        "BLEU": 0.0021240661057963803,
+        "ROUGE": {
+            "rouge-1": 0.3781094527363184,
+            "rouge-2": 0.09975062344139651,
+            "rouge-L": 0.20398009950248758
+        }
+    },
+    "Hard_repository_analysis.txt": {
+        "BLEU": 0.026057002518694073,
+        "ROUGE": {
+            "rouge-1": 0.5125348189415042,
+            "rouge-2": 0.17116279069767443,
+            "rouge-L": 0.26740947075208915
+        }
+    }
+}
+
+
+BLEU is very low	Prompt Engineering AI rewords content rather than copying it.
+ROUGE is moderate	Prompt Engineering AI captures some key information but restructures sentences.
+Hard repos perform best	AI improves more when the task is complex.

@@ -1,0 +1,16 @@
+- `lib/` contains the main application code along with libraries and resources necessary for the project, including Java source files (`MarkdownParse.java`, `Sample.java`), test files (`MarkdownParseTest.java`, `MarkdownParseTestt.java`), documentation files (`README.md`), and various markdown files used for testing purposes. This folder is essential as it encapsulates the core functionality of the project and its testing framework.
+
+- `.github/workflows/` contains configuration files (like `main.yml`) for GitHub Actions, which is used for continuous integration and deployment (CI/CD) processes. This folder connects to the main functionality by automating tests and deployments whenever changes are pushed to the repository, thus ensuring that the code in `lib/` is continuously verified.
+
+- `.vscode/` hosts settings related to Visual Studio Code. The presence of `settings.json` in this folder indicates it customizes the development environment for contributors, enhancing the coding experience when working on the files in the `lib/` folder.
+
+**Folder Relationships and Dependencies:**
+- The `lib/` folder is the primary location for both the source code and tests. The testing files within this folder are dependent on the application logic provided in the same folder, indicating a strong internal dependency.
+- The `.github/workflows/` folder is dependent on `lib/` since it relies on the testing files for validating the application during CI processes. If tests fail, the workflow will notify developers, indicating that changes made in `lib/` may have broken functionality.
+- The `.vscode/` folder does not directly interact with the functionality of the project but supports it by enhancing the development experience for contributors working with the `lib/` folder.
+
+**Significance:**
+- The `README.md` file located in the `lib/` folder serves as important documentation for users and developers, explaining how to use the repository.
+- The presence of multiple markdown files (e.g., `Snippet1.md` and `test-file.md`) indicates that these files could be utilized for testing various scenarios in the application, reinforcing the connection between documentation and testing.
+
+Overall, the repository structure displays a well-thought-out organization where the core application functionality, testing, automation, and development environment configurations are cohesively aligned.

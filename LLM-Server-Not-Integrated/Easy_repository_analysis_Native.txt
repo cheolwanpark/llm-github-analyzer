@@ -1,0 +1,12 @@
+.github/workflows:
+
+main.yml: A YAML file for setting up GitHub Actions workflows.
+.vscode:
+
+settings.json: Contains settings for the Visual Studio Code editor.
+lib:
+
+Java libraries: hamcrest-core-1.3.jar and junit-4.12.jar for unit testing.
+Source and test files: MarkdownParse.java (the main Java class), MarkdownParseTest.java, and MarkdownParseTestt.java (unit tests).
+Documentation and markdown files: README.md, Snippet1.md, Snippet2.md, Snippet3.md, and various test-file.md files (e.g., test-file.md through test-file8.md).
+Miscellaneous files: .gitignore (to specify untracked files that Git should ignore), TAresults.txt, makefile (for managing build processes), mdparse (possibly a script or executable), myresults.txt (likely output results), and test.md (another test markdown file).
