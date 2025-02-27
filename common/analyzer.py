@@ -74,7 +74,8 @@ class Analyzer:
         assert self.github_url
 
         docker = get_docker()
-        docker.containers.run(
+        network = docker.networks.get("llm_net")
+        container = docker.containers.run(
             "analyzer_worker",
             name=self._worker_name,
             detach=True,
@@ -87,6 +88,7 @@ class Analyzer:
                 f"REDIS_PORT={self.redis.port}"
             ]
         )
+        network.connect(container)
 
     def delete(self):
         docker = get_docker()
