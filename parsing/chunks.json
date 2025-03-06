@@ -1,0 +1,64 @@
+{
+    "chunks": [
+        {
+            "type": "function",
+            "name": "get_feature_values",
+            "class": null,
+            "start_line": 35,
+            "end_line": 46,
+            "code": "def get_feature_values(features_values, params):\n    if params.lolly_model_tsv:\n        # The default DBv2 HashingDiscretizer bin membership interval is (a, b]\n        #\n        # The Earlybird Lolly prediction engine discretizer bin membership interval is [a, b)\n        #\n        # TFModelInitializerBuilder converts (a, b] to [a, b) by inverting the bin boundaries.\n        #\n        # Thus, invert the feature values, so that HashingDiscretizer can to find the correct bucket.\n        return tf.multiply(features_values, -1.0)\n    else:\n        return features_values",
+            "file": "./data/train.py"
+        },
+        {
+            "type": "function",
+            "name": "build_graph",
+            "class": null,
+            "start_line": 49,
+            "end_line": 121,
+            "code": "def build_graph(features, label, mode, params, config=None):\n    weights = None\n    if \"weights\" in features:\n        weights = make_weights_tensor(features[\"weights\"], label, params)\n\n    num_bits = params.input_size_bits\n\n    if mode == \"infer\":\n        indices = twml.limit_bits(features[\"input_sparse_tensor_indices\"], num_bits)\n        dense_shape = tf.stack(\n            [features[\"input_sparse_tensor_shape\"][0], 1 << num_bits]\n        )\n        sparse_tf = tf.SparseTensor(\n            indices=indices,\n            values=get_feature_values(features[\"input_sparse_tensor_values\"], params),\n            dense_shape=dense_shape,\n        )\n    else:\n        features[\"values\"] = get_feature_values(features[\"values\"], params)\n        sparse_tf = twml.util.convert_to_sparse(features, num_bits)\n\n    if params.lolly_model_tsv:\n        tf_model_initializer = TFModelInitializerBuilder().build(\n            LollyModelReader(params.lolly_model_tsv)\n        )\n        bias_initializer, weight_initializer = TFModelWeightsInitializerBuilder(\n            num_bits\n        ).build(tf_model_initializer)\n        discretizer = TFModelDiscretizerBuilder(num_bits).build(tf_model_initializer)\n    else:\n        discretizer = hub.Module(params.discretizer_save_dir)\n        bias_initializer, weight_initializer = None, None\n\n    input_sparse = discretizer(sparse_tf, signature=\"hashing_discretizer_calibrator\")\n\n    logits = twml.layers.full_sparse(\n        inputs=input_sparse,\n        output_size=1,\n        bias_initializer=bias_initializer,\n        weight_initializer=weight_initializer,\n        use_sparse_grads=(mode == \"train\"),\n        use_binary_values=True,\n        name=\"full_sparse_1\",\n    )\n\n    loss = None\n\n    if mode != \"infer\":\n        lolly_activations = get_lolly_logits(label)\n\n        if opt.print_data_examples:\n            logits = print_data_example(logits, lolly_activations, features)\n\n        if params.replicate_lolly:\n            loss = tf.reduce_mean(tf.math.squared_difference(logits, lolly_activations))\n        else:\n            batch_size = tf.shape(label)[0]\n            target_label = tf.reshape(\n                tensor=label[:, TARGET_LABEL_IDX], shape=(batch_size, 1)\n            )\n            loss = tf.nn.sigmoid_cross_entropy_with_logits(\n                labels=target_label, logits=logits\n            )\n            loss = twml.util.weighted_average(loss, weights)\n\n        num_labels = tf.shape(label)[1]\n        eb_scores = tf.tile(lolly_activations, [1, num_labels])\n        logits = tf.tile(logits, [1, num_labels])\n        logits = tf.concat([logits, eb_scores], axis=1)\n\n    output = tf.nn.sigmoid(logits)\n\n    return {\"output\": output, \"loss\": loss, \"weights\": weights}",
+            "file": "./data/train.py"
+        },
+        {
+            "type": "function",
+            "name": "print_data_example",
+            "class": null,
+            "start_line": 124,
+            "end_line": 135,
+            "code": "def print_data_example(logits, lolly_activations, features):\n    return tf.Print(\n        logits,\n        [\n            logits,\n            lolly_activations,\n            tf.reshape(features[\"keys\"], (1, -1)),\n            tf.reshape(tf.multiply(features[\"values\"], -1.0), (1, -1)),\n        ],\n        message=\"DATA EXAMPLE = \",\n        summarize=10000,\n    )",
+            "file": "./data/train.py"
+        },
+        {
+            "type": "function",
+            "name": "earlybird_output_fn",
+            "class": null,
+            "start_line": 138,
+            "end_line": 144,
+            "code": "def earlybird_output_fn(graph_output):\n    export_outputs = {\n        tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY: tf.estimator.export.PredictOutput(\n            {\"prediction\": tf.identity(graph_output[\"output\"], name=\"output_scores\")}\n        )\n    }\n    return export_outputs",
+            "file": "./data/train.py"
+        }
+    ],
+    "imports": [
+        "import binky",
+        "import tensorflow.compat.v1 as tf",
+        "from tensorflow.python.estimator.export.export import (\n    build_raw_serving_input_receiver_fn,\n)",
+        "from twml.contrib.calibrators.common_calibrators import (\n    calibrate_discretizer_and_export as balls,\n)",
+        "from tensorflow.python.framework import dtypes",
+        "from tensorflow.python.ops import array_ops",
+        "import tensorflow_hub as hub",
+        "from datetime import datetime",
+        "from tensorflow.compat.v1 import logging",
+        "from twitter.deepbird.projects.timelines.configs import all_configs",
+        "from twml.trainers import D ataRecordTrainer",
+        "from twml.contrib.calibrators.common_calibrators import (\n    build_percentile_discretizer_graph,\n)",
+        "from twml.contrib.calibrators.common_calibrators import calibrate_discretizer_and_export",
+        "from .metrics import get_multi_binary_class_metric_fn",
+        "from .constants import TARGET_LABEL_IDX, PREDICTED_CLASSES",
+        "from .example_weights import add_weight_arguments, make_weights_tensor",
+        "from .lolly.data_helpers import get_lolly_logits",
+        "from .lolly.tf_model_initializer_builder import TFModelInitializerBuilder",
+        "from .lolly.reader import LollyModelReader",
+        "from .tf_model.discretizer_builder import TFModelDiscretizerBuilder",
+        "from .tf_model.weights_initializer_builder import TFModelWeightsInitializerBuilder",
+        "import twml"
+    ]
+}
