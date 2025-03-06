@@ -4,7 +4,7 @@ import os
 from typing import Optional, Type, TypeVar
 from enum import Enum
 from .redis import Redis
-from .analyzer_result import AnalyzerResult
+from .query import Query, QueryStatus
 
 def get_docker() -> dk.DockerClient:
     return dk.from_env()
@@ -22,7 +22,6 @@ class AnalyzerStatus(Enum):
     CLONING = "CLONING"
     PROCESSING = "PROCESSING"
     READY = "READY"
-    DONE = "DONE"
     ERROR = "ERROR"
 
 T = TypeVar('T', bound='Analyzer')
@@ -72,13 +71,6 @@ class Analyzer:
         status = self.redis.get(self._status_key)
         return AnalyzerStatus(status) if status else None
     
-    def set_result(self, result: AnalyzerResult):
-        self.redis.set(self._result_key, result.to_json())
-    
-    def get_result(self) -> Optional[AnalyzerResult]:
-        result = self.redis.get(self._result_key)
-        return AnalyzerResult.from_json(result) if result else None
-    
     def spawn_container(self):
         assert self.github_url
 
@@ -94,10 +86,23 @@ class Analyzer:
                 f"REQUEST_ID={self.id}",
                 f"GITHUB_URL={self.github_url}",
                 f"REDIS_HOST={self.redis.host}",
-                f"REDIS_PORT={self.redis.port}"
+                f"REDIS_PORT={self.redis.port}",
+                f"LLM_API_KEY={os.environ.get('LLM_API_KEY', 'API_KEY')}"
             ]
         )
         network.connect(container)
+    
+    def push_query(self, query: Query):
+        query.set_status(QueryStatus.REQUESTED)
+        self.redis.push(self._queue_name, query.to_json())
+        self.redis.push(self._query_list_name, query.id)
+    
+    def pull_query(self) -> Optional[Query]:
+        s = self.redis.pull(self._queue_name)
+        if s is not None:
+            return Query.from_json(s)
+        else:
+            return None
 
     def delete(self):
         container = get_container(self._worker_name)
@@ -106,8 +111,13 @@ class Analyzer:
         self.delete_records()
     
     def delete_records(self):
+        for qid in self._query_ids:
+            self.redis.delete_all(f"{Query.from_id(qid)._redis_prefix}*")
         self.redis.delete_all(f"{self._redis_prefix}*")
-
+    
+    @property
+    def _query_ids(self) -> list[str]:
+        return self.redis.range(self._query_list_name, 0, -1)
     @property
     def _worker_name(self) -> str:
         return f"worker-{self.id}"
@@ -118,6 +128,8 @@ class Analyzer:
     def _status_key(self) -> str:
         return f"{self._redis_prefix}:status"
     @property
-    def _result_key(self) -> str:
-        return f"{self._redis_prefix}:result"
-    
+    def _queue_name(self) -> str:
+        return f"{self._redis_prefix}:queue"
+    @property
+    def _query_list_name(self) -> str:
+        return f"{self._redis_prefix}:querylist"

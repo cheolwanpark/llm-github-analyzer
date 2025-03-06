@@ -45,10 +45,6 @@ class DirChunk:
     imports: list[str]
     classes: list[(str, str)]
     functions: list[(str, str)]
-
-def _read_file(path: str):
-    with open(path, "rb") as f:
-        return f.read()
     
 def _parse_decorated_def(node: Node) -> Union[FunctionChunk, ClassChunk]:
     assert node.type == "decorated_definition"
@@ -106,7 +102,8 @@ def parse_code(file: RepoFile) -> CodeChunk:
     assert file.is_file
     assert file.type == ".py"
 
-    code = _read_file(file.path)
+    with open(file.path, "rb") as f:
+        code =  f.read()
     tree = _parser.parse(code)
     imports = []
     classes = []
