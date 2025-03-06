@@ -9,12 +9,21 @@ from .analyzer_result import AnalyzerResult
 def get_docker() -> dk.DockerClient:
     return dk.from_env()
 
+def get_container(name: str):
+    try:
+        docker = get_docker()
+        return docker.containers.get(name)
+    except dk.errors.NotFound:
+        return None
+
 class AnalyzerStatus(Enum):
     REQUESTED = "REQUESTED"
     SPAWNED = "SPAWNED"
     CLONING = "CLONING"
     PROCESSING = "PROCESSING"
+    READY = "READY"
     DONE = "DONE"
+    ERROR = "ERROR"
 
 T = TypeVar('T', bound='Analyzer')
 
@@ -91,15 +100,13 @@ class Analyzer:
         network.connect(container)
 
     def delete(self):
-        docker = get_docker()
-        container = docker.containers.get(self._worker_name)
+        container = get_container(self._worker_name)
         if container:
             container.remove(force=True)
         self.delete_records()
     
     def delete_records(self):
-        self.redis.delete(self._status_key)
-        self.redis.delete(self._result_key)
+        self.redis.delete_all(f"{self._redis_prefix}*")
 
     @property
     def _worker_name(self) -> str:

@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Query, Body
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from common.redis import Redis
 from common.analyzer import Analyzer, AnalyzerStatus
 from urllib.parse import unquote
@@ -50,13 +50,10 @@ def delete_analyzer(analyzer_id: str):
     if not analyzer.exists():
         raise HTTPException(status_code=404, detail="Analyzer not found")
     try:
-        if analyzer.get_status() != AnalyzerStatus.DONE:
-            analyzer.delete()
-        else:
-            analyzer.delete_records()
+        analyzer.delete()
         if analyzer.exists():
             raise "failed to delete"
-        return JSONResponse({}, status_code=204)
+        return Response(status_code=204)
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to delete Analyzer")
 

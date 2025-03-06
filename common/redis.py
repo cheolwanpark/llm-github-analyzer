@@ -6,7 +6,7 @@ class Redis:
     def __init__(self):
         self.host = os.getenv("REDIS_HOST", "localhost")
         self.port = int(os.getenv("REDIS_PORT", 6379))
-        self.r = redis.Redis(host=self.host, port=self.port, decode_responses=True)
+        self.r = redis.Redis(host=self.host, port=self.port, decode_responses=False)
     
     def has(self, key: str):
         return self.r.exists(key)
@@ -14,8 +14,9 @@ class Redis:
     def set(self, key: str, val: str):
         self.r.set(name=key, value=val)
     
-    def get(self, key: str) -> Optional[str]:
-        return self.r.get(name=key)
+    def get(self, key: str, decode: bool = True) -> Optional[str]:
+        b = self.r.get(name=key)
+        return b if not decode else (b.decode('utf-8') if b is not None else None)
     
     def delete(self, key: str):
         self.r.delete(key)

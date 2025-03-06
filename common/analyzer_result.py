@@ -8,18 +8,15 @@ class AnalyzerResult:
     def from_json(cls: Type[T], json_str: str) -> T:
         d = json.loads(json_str)
         return AnalyzerResult(
-            paths=d["paths"],
-            tree=d["tree"],
+            repo_metadata=d["repo_metadata"]
         )
 
-    def __init__(self, paths, tree):
-        self.paths = paths
-        self.tree = tree
+    def __init__(self, repo_metadata: str):
+        self.repo_metadata = repo_metadata
     
     def to_dict(self) -> Dict:
         return {
-            "paths": self.paths,
-            "tree": self.tree
+            "repo_metadata": self.repo_metadata
         }
     
     def to_json(self, indent: Optional[int] = None) -> str:
