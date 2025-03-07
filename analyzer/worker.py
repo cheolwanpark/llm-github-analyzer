@@ -2,14 +2,11 @@ from common.redis import Redis
 from common.analyzer import Analyzer, AnalyzerStatus
 from common.query import QueryStatus, QueryResult
 from repo import Repository
-from prompt import Prompter
-from llm import LLM
+from codedb import CodeDB
 from time import sleep
-import os
 
 def main():
     query = None
-    api_key = os.environ.get("LLM_API_KEY", "API_KEY")
     try:
         redis = Redis()
         analyzer = Analyzer.from_env(redis)
@@ -17,7 +14,8 @@ def main():
         repo = Repository(analyzer.github_url)
 
         analyzer.set_status(AnalyzerStatus.PROCESSING)
-        prompter = Prompter(repo, llm=LLM(api_key=api_key))
+        codedb = CodeDB(redis)
+        codedb.build(repo)
 
         analyzer.set_status(AnalyzerStatus.READY)
         while True:
@@ -26,7 +24,7 @@ def main():
                 sleep(1.0)
                 continue
             query.set_status(QueryStatus.PROCESSING)
-            result = prompter.prompt(query)
+            result = "TBD"
             result = QueryResult(query.query, result)
             query.set_result(result)
 

@@ -87,8 +87,9 @@ class Repository:
     def get_paths(self, f = None) -> List[str]:
         paths = []
         def dfs(node: RepoFile):
-            paths.append(node.path)
-            for entry in node.entries if f is None else filter(f, node.entries):
+            if f is None or f(node):
+                paths.append(node.path)
+            for entry in node.entries:
                 dfs(entry)
         dfs(self.root)
         return paths
@@ -104,6 +105,10 @@ class Repository:
     @property
     def directories(self) -> List[str]:
         return self.get_paths(lambda f: f.is_dir)
+    
+    @property
+    def files(self) -> List[str]:
+        return self.get_paths(lambda f: f.is_file)
 
     @staticmethod
     def extract_id(url: str) -> Optional[str]:

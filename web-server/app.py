@@ -61,7 +61,7 @@ def create_query(dto: CreateQueryDTO = Body(description="User Query")):
     return JSONResponse({"query_id": query.id}, status_code=201)
 
 @app.get("/query/{query_id}")
-def progress(query_id: str):
+def query_progress(query_id: str):
     query = Query.from_id(query_id)
     if not query.exists():
         raise HTTPException(status_code=404, detail="Query not found")

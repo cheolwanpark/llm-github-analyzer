@@ -2,9 +2,7 @@ import tree_sitter_python as tspython
 from tree_sitter import Language, Parser, Node
 from repo import RepoFile, Repository
 from dataclasses import dataclass
-from typing import TypeVar, Optional, Union
-from common.redis import Redis
-from common.analyzer import Analyzer
+from typing import TypeVar, Union
 from pathlib import Path
 from pickle import dumps, loads
 
@@ -14,7 +12,7 @@ _parser = Parser(Language(tspython.language()))
 class FunctionChunk:
     name: str
     decorator: str
-    code: str
+    body: str
 
 T = TypeVar('T', bound='ClassChunk')
 @dataclass
@@ -23,6 +21,7 @@ class ClassChunk:
     methods: list[FunctionChunk]
     inner_classes: list[T]
     decorator: str
+    body: str
 
 @dataclass
 class Import:
@@ -37,14 +36,6 @@ class CodeChunk:
     imports: list[Import]
     classes: list[ClassChunk]
     functions: list[FunctionChunk]
-
-@dataclass
-class DirChunk:
-    path: str
-    codes: list[str]
-    imports: list[str]
-    classes: list[(str, str)]
-    functions: list[(str, str)]
     
 def _parse_decorated_def(node: Node) -> Union[FunctionChunk, ClassChunk]:
     assert node.type == "decorated_definition"
@@ -54,10 +45,12 @@ def _parse_decorated_def(node: Node) -> Union[FunctionChunk, ClassChunk]:
     if d.type == "function_definition":
         f = _parse_function_def(d)
         f.decorator = decorator
+        f.body = node.text.decode()
         return f
     elif d.type == "class_definition":
         c = _parse_class_def(d)
         c.decorator = decorator
+        c.body = node.text.decode()
         return c
 
 def _parse_function_def(node: Node) -> FunctionChunk:
@@ -88,7 +81,8 @@ def _parse_class_def(node: Node):
         name,
         methods,
         inner_classes,
-        ""
+        "",
+        node.text.decode()
     )
 
 def _parse_module_name(node: Node):
@@ -148,70 +142,11 @@ def parse_code(file: RepoFile) -> CodeChunk:
         functions
     )
 
-def parse_directory(dir: RepoFile) -> tuple[DirChunk, list[CodeChunk]]:
-    assert dir.is_dir
-
-    imports = set()
-    classes = []
-    functions = []
-    codes = []
-
-    for e in dir.file_entries:
-        if e.type == ".py":
-            r = parse_code(e)
-            for i in r.imports:
-                imports.add(i.module)
-            for c in r.classes:
-                classes.append((c.name, r.name))
-            for f in r.functions:
-                functions.append((f.name, r.name))
-            codes.append(r)
-
-    return DirChunk(
-        dir.path,
-        list(map(lambda r: r.name, codes)),
-        list(imports),
-        classes,
-        functions,
-    ), codes
-    
-class Chunks:
-    def __init__(self):
-        self.redis = Redis()
-        self.analyzer = Analyzer.from_env(self.redis)
-        self.dir_descriptions = []
-        self.codes = []
-        self.dirs = []
-    
-    def _save_dir_chunk(self, result: DirChunk):
-        self.redis.set(self._dir_cache_key(result.path), dumps(result))
-    
-    def _save_code_chunk(self, result: CodeChunk):
-        self.redis.set(self._code_cache_key(result.path), dumps(result))
-    
-    def load_dir_chunk(self, path: str) -> Optional[DirChunk]:
-        s = self.redis.get(self._dir_cache_key(path), decode=False)
-        return loads(s) if s is not None else None
-
-    def load_code_chunk(self, path: str) -> Optional[CodeChunk]:
-        s = self.redis.get(self._code_cache_key(path), decode=False)
-        return loads(s) if s is not None else None
-
-    def _dir_cache_key(self, path: str) -> str: 
-        return f"{self.analyzer._redis_prefix}:directory:{path}"
-    
-    def _code_cache_key(self, path: str) -> str:
-        return f"{self.analyzer._redis_prefix}:code:{path}"
-
-def parse(repo: Repository) -> Chunks:
-    chunks = Chunks()
-    for dir in repo.directories:
-        r, codes = parse_directory(RepoFile(Path(dir)))
-        if len(codes) == 0:
+def parse(repo: Repository) -> list[CodeChunk]:
+    chunks = []
+    for path in repo.files:
+        f = RepoFile(Path(path))
+        if not f.is_file or f.type != ".py":
             continue
-        chunks._save_dir_chunk(r)
-        for code_r in codes:
-            chunks._save_code_chunk(code_r)
-            chunks.codes.append(code_r.path)
-        chunks.dirs.append(r.path)
+        chunks.append(parse_code(f))
     return chunks
