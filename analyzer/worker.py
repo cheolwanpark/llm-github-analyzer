@@ -9,11 +9,15 @@ def main():
     query = None
     try:
         analyzer = Analyzer.from_env()
-        analyzer.set_status(AnalyzerStatus.CLONING)
         repo = Repository(analyzer.github_url)
+        codedb = CodeDB(repo=repo)
+
+        if not codedb.exists():
+            analyzer.set_status(AnalyzerStatus.CLONING)
+            repo.clone()
 
         analyzer.set_status(AnalyzerStatus.PROCESSING)
-        # codedb = CodeDB(repo=repo)
+        codedb.build()
 
         analyzer.set_status(AnalyzerStatus.READY)
         while True:
@@ -22,7 +26,7 @@ def main():
                 sleep(1.0)
                 continue
             query.set_status(QueryStatus.PROCESSING)
-            result = "TBD"
+            result = str(codedb.search("POST endpoint")[0])
             result = QueryResult(query.query, result)
             query.set_result(result)
 
@@ -30,7 +34,7 @@ def main():
         analyzer.set_status(AnalyzerStatus.ERROR)
         if query is not None:
             query.set_status(QueryStatus.ERROR)
-        print(e)
+        raise e
         
 if __name__ == "__main__":
     main()

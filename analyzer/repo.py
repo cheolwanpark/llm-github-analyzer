@@ -79,6 +79,9 @@ class Repository:
         self.id = Repository.extract_id(url)
         self.repo = Github().get_repo(self.id) if self.id else None
         self.repo_path = Path(REPO_PATH)
+        self.cloned_repo = None
+    
+    def clone(self):
         if self.repo_path.exists():
             self.cloned_repo = Repo(REPO_PATH)
         else:

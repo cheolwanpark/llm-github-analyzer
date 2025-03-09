@@ -29,6 +29,8 @@ services:
 
   redis:
     image: redis/redis-stack-server:latest
+    volumes:
+      - redis_data:/data
     networks:
       - redis_net
 
@@ -48,3 +50,11 @@ networks:
   llm_net:
     name: llm_net
     driver: bridge
+
+volumes:
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./redis_data

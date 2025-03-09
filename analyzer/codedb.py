@@ -75,13 +75,22 @@ class QueryResult:
 class CodeDB:
     def __init__(
             self,
-            repo: Repository, 
-            threads: int = 16,
+            repo: Repository,
             model: str = "all-MiniLM-L6-v2"
     ):
         self.redis = get_redis()
         self.repo = repo
         self.embedder = SentenceTransformer(model)
+        self.index = None
+    
+    def exists(self) -> bool:
+        try:
+            self.redis.ft(self._redis_index_name).info()
+            return True
+        except:
+            return False
+    
+    def build(self, threads: int = 16):
         self.index = self._build(threads)
     
     def search(self, query: str, n: int = 1) -> list[QueryResult]:
@@ -89,7 +98,7 @@ class CodeDB:
         query = (
             Query(f"(*)=>[KNN {n} @embedding $query_vector AS score]")
                 .sort_by("score")
-                .return_fields("score", "type", "path", "name", "body", "description")
+                .return_fields("score", "$.type", "$.path", "$.name", "$.body", "$.description")
                 .dialect(2)
         )
         docs = self.index.search(
@@ -103,11 +112,11 @@ class CodeDB:
             return QueryResult(
                 score=doc.score,
                 rec=CodeRecord(
-                    type=doc.type,
-                    path=doc.path,
-                    name=doc.name,
-                    body=doc.body,
-                    description=doc.description
+                    type=doc["$.type"],
+                    path=doc["$.path"],
+                    name=doc["$.name"],
+                    body=doc["$.body"],
+                    description=doc["$.description"]
                 )
             )
 
@@ -120,13 +129,10 @@ class CodeDB:
         ).astype(np.float32).tolist()
     
     def _build(self, threads: int) -> Search:
-        try:
-            index = redis.r.ft(self._redis_index_name)
-            index.info()
+        if self.exists():
+            index = self.redis.ft(self._redis_index_name)
             print("use existing index")
             return index
-        except:
-            self.search = None
         
         print("parsing repository")
         recs = self._extract_records(parse(self.repo))
@@ -142,6 +148,7 @@ class CodeDB:
         print("generate descriptions")
         with ThreadPoolExecutor(max_workers=threads) as executor:
             descriptions = list(executor.map(generate_descriptions, splitted_recs))
+        print("encode descriptions")
         descriptions = sum(descriptions, [])
         embeddings = self._encode(descriptions)
         embedding_dim = len(embeddings[0])
@@ -165,11 +172,11 @@ class CodeDB:
         
         print("build index for searching")
         schema = (
-            TextField("$.path", as_name="path", no_stem=True, no_index=True),
-            TagField("$.type", as_name="type", no_index=True),
-            TextField("$.name", as_name="name", no_stem=True, no_index=True),
-            TextField("$.body", as_name="body", no_stem=True, no_index=True),
-            TextField("$.description", as_name="description", no_stem=True, no_index=True),
+            # TextField("$.path", as_name="path", no_stem=True, no_index=True,),
+            # TagField("$.type", as_name="type", no_index=True),
+            # TextField("$.name", as_name="name", no_stem=True, no_index=True),
+            # TextField("$.body", as_name="body", no_stem=True, no_index=True),
+            # TextField("$.description", as_name="description", no_stem=True, no_index=True),
             VectorField(
                 "$.embedding",
                 "FLAT",
@@ -182,8 +189,10 @@ class CodeDB:
             ),
         )
         definition = IndexDefinition(prefix=self._codechunk_prefix, index_type=IndexType.JSON)
-        index = self.redis.ft(self._redis_index_name).create_index(fields=schema, definition=definition)
-        print('done')
+        index = self.redis.ft(self._redis_index_name)
+        index.create_index(fields=schema, definition=definition)
+        self.redis.bgsave()
+        print("done")
         return index
 
     def _extract_records(self, codes: list[CodeChunk]) -> list[CodeRecord]:
@@ -230,16 +239,4 @@ class CodeDB:
         return f"{self._redis_prefix}codechunk:"
     def _codechunk_key(self, idx: int) -> str:
         return f"{self._codechunk_prefix}{idx}"
-            
-
-if __name__ == "__main__":
-    redis = Redis()
-    repo = Repository("https://github.com/cheolwanpark/llm-github-analyzer")
-    # repo = Repository("https://github.com/huggingface/transformers")
-    codedb = CodeDB(redis, repo)
-
-    results = codedb.search("Main entry point function initializes core components and orchestrates execution flow.", n=10)
-    for i, r in enumerate(results):
-        print(f"record {i}, score={r.score}")
-        print(f"path: {r.rec.path}\nname: {r.rec.name}\ndescription: {r.rec.description}\n")
 
