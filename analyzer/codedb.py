@@ -75,12 +75,11 @@ class QueryResult:
 class CodeDB:
     def __init__(
             self,
-            repo: Repository,
-            model: str = "all-MiniLM-L6-v2"
+            repo: Repository
     ):
         self.redis = get_redis()
         self.repo = repo
-        self.embedder = SentenceTransformer(model)
+        self.embedder = SentenceTransformer("sentence-transformer")
         self.index = None
     
     def exists(self) -> bool:
