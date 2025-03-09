@@ -58,7 +58,6 @@ class Analyzer:
         self.id = id
     
     def exists(self) -> bool:
-        print(self.redis.exists(self._status_key))
         return self.redis.exists(self._status_key)
 
     def set_status(self, status: AnalyzerStatus):
