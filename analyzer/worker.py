@@ -1,4 +1,4 @@
-from common.redis import Redis
+from common.redis import get_redis
 from common.analyzer import Analyzer, AnalyzerStatus
 from common.query import QueryStatus, QueryResult
 from repo import Repository
@@ -8,14 +8,12 @@ from time import sleep
 def main():
     query = None
     try:
-        redis = Redis()
-        analyzer = Analyzer.from_env(redis)
+        analyzer = Analyzer.from_env()
         analyzer.set_status(AnalyzerStatus.CLONING)
         repo = Repository(analyzer.github_url)
 
         analyzer.set_status(AnalyzerStatus.PROCESSING)
-        codedb = CodeDB(redis)
-        codedb.build(repo)
+        # codedb = CodeDB(repo=repo)
 
         analyzer.set_status(AnalyzerStatus.READY)
         while True:

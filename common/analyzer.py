@@ -3,7 +3,7 @@ import docker as dk
 import os
 from typing import Optional, Type, TypeVar
 from enum import Enum
-from .redis import Redis
+from .redis import get_redis
 from .query import Query, QueryStatus
 
 def get_docker() -> dk.DockerClient:
@@ -28,47 +28,44 @@ T = TypeVar('T', bound='Analyzer')
 
 class Analyzer:
     @classmethod
-    def new(cls: Type[T], redis: Redis, github_url: str) -> T:
+    def new(cls: Type[T], github_url: str) -> T:
         return Analyzer(
-            redis=redis,
             github_url=github_url,
             id=str(uuid.uuid4().hex)
         )
     
     @classmethod
-    def from_id(cls: Type[T], redis: Redis, id: str) -> T:
+    def from_id(cls: Type[T], id: str) -> T:
         return Analyzer(
-            redis=redis,
             github_url=None,
             id=id
         )
     
     @classmethod
-    def from_env(cls: Type[T], redis: Redis) -> T:
+    def from_env(cls: Type[T]) -> T:
         return Analyzer(
-            redis=redis,
             github_url=os.getenv("GITHUB_URL"),
             id=os.getenv("REQUEST_ID"),
         )
 
     def __init__(
         self, 
-        redis: Redis,
         github_url: Optional[str] = None,
         id: Optional[str] = None
     ):
-        self.redis = redis
+        self.redis = get_redis()
         self.github_url = github_url
         self.id = id
     
     def exists(self) -> bool:
-        return self.redis.has(self._status_key)
+        print(self.redis.exists(self._status_key))
+        return self.redis.exists(self._status_key)
 
     def set_status(self, status: AnalyzerStatus):
-        self.redis.set(self._status_key, status.value)
+        self.redis.set(name=self._status_key, value=status.value)
     
     def get_status(self) -> Optional[AnalyzerStatus]:
-        status = self.redis.get(self._status_key)
+        status = self.redis.get(name=self._status_key)
         return AnalyzerStatus(status) if status else None
     
     def spawn_container(self):
@@ -85,8 +82,8 @@ class Analyzer:
             environment=[
                 f"REQUEST_ID={self.id}",
                 f"GITHUB_URL={self.github_url}",
-                f"REDIS_HOST={self.redis.host}",
-                f"REDIS_PORT={self.redis.port}",
+                f"REDIS_HOST={self.redis.connection_pool.connection_kwargs['host']}",
+                f"REDIS_PORT={self.redis.connection_pool.connection_kwargs['port']}",
                 f"LLM_API_KEY={os.environ.get('LLM_API_KEY', 'API_KEY')}"
             ]
         )
@@ -94,11 +91,11 @@ class Analyzer:
     
     def push_query(self, query: Query):
         query.set_status(QueryStatus.REQUESTED)
-        self.redis.push(self._queue_name, query.to_json())
-        self.redis.push(self._query_list_name, query.id)
+        self.redis.rpush(self._queue_name, query.to_json())
+        self.redis.rpush(self._query_list_name, query.id)
     
     def pull_query(self) -> Optional[Query]:
-        s = self.redis.pull(self._queue_name)
+        s = self.redis.lpop(name=self._queue_name)
         if s is not None:
             return Query.from_json(s)
         else:
@@ -112,24 +109,26 @@ class Analyzer:
     
     def delete_records(self):
         for qid in self._query_ids:
-            self.redis.delete_all(f"{Query.from_id(qid)._redis_prefix}*")
-        self.redis.delete_all(f"{self._redis_prefix}*")
+            for key in self.redis.scan_iter(f"{Query.from_id(qid)._redis_prefix}*"):
+                self.redis.delete(key)
+        for key in self.redis.scan_iter(f"{self._redis_prefix}*"):
+            self.redis.delete(key)
     
     @property
     def _query_ids(self) -> list[str]:
-        return self.redis.range(self._query_list_name, 0, -1)
+        return self.redis.lrange(name=self._query_list_name, start=0, end=-1)
     @property
     def _worker_name(self) -> str:
         return f"worker-{self.id}"
     @property
     def _redis_prefix(self) -> str:
-        return f"analyzer:{self.id}"
+        return f"analyzer:{self.id}:"
     @property
     def _status_key(self) -> str:
-        return f"{self._redis_prefix}:status"
+        return f"{self._redis_prefix}status"
     @property
     def _queue_name(self) -> str:
-        return f"{self._redis_prefix}:queue"
+        return f"{self._redis_prefix}queue"
     @property
     def _query_list_name(self) -> str:
-        return f"{self._redis_prefix}:querylist"
+        return f"{self._redis_prefix}querylist"

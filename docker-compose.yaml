@@ -28,7 +28,7 @@ services:
       - llm_net
 
   redis:
-    image: redis:latest
+    image: redis/redis-stack-server:latest
     networks:
       - redis_net
 

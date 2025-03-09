@@ -12,7 +12,7 @@ from redis.commands.search.query import Query
 from sentence_transformers import SentenceTransformer
 from repo import Repository
 from parsing import parse, CodeChunk, ClassChunk, FunctionChunk
-from common.redis import Redis
+from common.redis import get_redis
 from llm import LLM
 
 enc = tiktoken.encoding_for_model("gpt-4o")
@@ -74,13 +74,12 @@ class QueryResult:
 
 class CodeDB:
     def __init__(
-            self, 
-            redis: Redis, 
+            self,
             repo: Repository, 
             threads: int = 16,
             model: str = "all-MiniLM-L6-v2"
     ):
-        self.redis = redis
+        self.redis = get_redis()
         self.repo = repo
         self.embedder = SentenceTransformer(model)
         self.index = self._build(threads)
@@ -150,7 +149,7 @@ class CodeDB:
         print("push records to redis")
         remains = range(len(recs))
         while len(remains) > 0:
-            pipeline = self.redis.r.pipeline()
+            pipeline = self.redis.pipeline()
             for i in remains:
                 key = self._codechunk_key(i)
                 recs[i].description = descriptions[i]
@@ -183,7 +182,7 @@ class CodeDB:
             ),
         )
         definition = IndexDefinition(prefix=self._codechunk_prefix, index_type=IndexType.JSON)
-        index = self.redis.r.ft(self._redis_index_name).create_index(fields=schema, definition=definition)
+        index = self.redis.ft(self._redis_index_name).create_index(fields=schema, definition=definition)
         print('done')
         return index
 
