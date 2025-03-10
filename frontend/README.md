@@ -2,6 +2,9 @@
 
 This is a **Vite + React** application for analyzing GitHub repositories. It provides insights into repository structures, contributions, and more. You can chat with it about the repo too.
 
+![homepage](./readme_images/home.png)
+![chat](./readme_images/chat.png)
+
 ## 🚀 Setup Instructions
 
 ### 1. Clone the Repository
