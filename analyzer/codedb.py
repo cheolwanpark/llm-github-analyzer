@@ -83,6 +83,10 @@ class CodeDB:
 
         return list(map(doc2qresult, docs))
     
+    @property
+    def readme(self) -> str:
+        return self.redis.get(name=self._readme_key)
+    
     def _encode(self, s: list[str]) -> list[list[np.float32]]:
         return self.embedder.encode(
             s,
@@ -95,6 +99,10 @@ class CodeDB:
             print("use existing index")
             return index
         
+        print("saving readme")
+        readme = self.repo.readme.read() if self.repo.readme is not None else ""
+        self.redis.set(name=self._readme_key, value=readme)
+        
         print("parsing repository")
         recs = self._extract_records(parse(self.repo))
         splitted_recs = self._split_chunks(recs)
@@ -105,11 +113,24 @@ class CodeDB:
             llm = _get_llm(system, user)
             result = llm.prompt(system, user)
             result = result.split(sep_token)
-            return result if len(result) == len(bodies) else [""]*len(bodies)
+            return result if len(result) == len(bodies) else None
 
         print("generate descriptions")
         with ThreadPoolExecutor(max_workers=threads) as executor:
-            descriptions = list(executor.map(generate_descriptions, splitted_recs))
+            remain = list(range(len(splitted_recs)))
+            descriptions = [None] * len(splitted_recs)
+            while len(remain) > 0:
+                remain_recs = [splitted_recs[idx] for idx in remain]
+                generated = list(executor.map(generate_descriptions, remain_recs))
+                failues = []
+                for i, idx in enumerate(remain):
+                    if generated[i] is None:
+                        failues.append(idx)
+                    else:
+                        descriptions[idx] = generated[i]
+                print(f'failed {len(failues)}/{len(remain)}')
+                remain = failues
+
         print("encode descriptions")
         descriptions = sum(descriptions, [])
         embeddings = self._encode(descriptions)
@@ -193,6 +214,9 @@ class CodeDB:
     @property
     def _redis_prefix(self) -> str:
         return f"codedb:{self.repo.id}:"
+    @property
+    def _readme_key(self) -> str:
+        return f"{self._redis_prefix}readme"
     @property
     def _redis_index_name(self) -> str:
         return f"{self._redis_prefix}index"

@@ -40,7 +40,12 @@ def main():
 def main_test():
     from common.query import Query
     github_url = "https://github.com/cheolwanpark/llm-github-analyzer"
-    query = Query("testquery", "Where should I start reading code?")
+    query = Query("testquery", \
+'''You are an expert project assistant. Your task is to create a comprehensive, well-formatted onboarding guide for a new project collaborator using our project's code repository as reference. Use the repository’s documentation, commit history, and code structure details to generate a markdown document that includes:\n
+1. Project Overview: A brief introduction including the project’s goals, scope, and context.
+2. Important Function and Classes to look first
+Ensure that the output is formatted in markdown with clear headers, bullet lists, and code blocks where appropriate. Use the retrieval capabilities to extract current and relevant details from the repository, ensuring the information is accurate and helpful for a newcomer.'
+''')
     repo = Repository(github_url)
     codedb = CodeDB(repo=repo)
     agent = Agent(codedb)
@@ -53,12 +58,10 @@ def main_test():
     print("\nanswer:")
     print(result["answers"][0])
     print("\n\n")
-    
+
     result = QueryResult(query.query, result)
     print(result.to_json(indent=2))
     
-
-        
 if __name__ == "__main__":
-    # main()
-    main_test()
+    main()
+    # main_test()

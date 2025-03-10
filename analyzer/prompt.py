@@ -74,24 +74,16 @@ Given the following code bodies delimited by the delimiter `{sep_token}` and a s
 '''
     return system, user
 
-def get_readme_summarization_prompt(readme: str, query: str) -> tuple[str, str]:
+def get_readme_summarization_prompt(readme: str) -> tuple[str, str]:
     system = \
-'''You are an expert at distilling complex README files into concise summaries. When provided with a project's README and a specific query, produce a clear, well-structured markdown summary that includes all the information necessary to fully address the user query. Focus solely on the content relevant to the query, ensuring the summary is comprehensive yet succinct. Avoid extraneous details or direct quotations—only include a synthesized summary that captures the essential points.
+'''You are an expert at summarizing README files based solely on the provided content. Your task is to produce a clear, well-structured markdown summary that includes only the information explicitly present in the README file. Do not add any details or assumptions beyond what is given. Focus solely on presenting the key points and essential details of the README.
 '''
     user = \
 f'''Below is the project's README content:
 
 {readme}
 
-User Query: {query}
-
-Please generate a summarized version of the README that includes all the information required to fully respond to the user query, focusing on the relevant aspects.
-''' if readme != "" else \
-f'''User Query: {query}
-
-Note: There is no README file available for this project.
-
-Please generate a summary based solely on the available project context and details that are relevant to the user query.
+Generate a summarized version of the README that captures all the essential information using only the content from the provided README file.
 '''
     return system, user
 

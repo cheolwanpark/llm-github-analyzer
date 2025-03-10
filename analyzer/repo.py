@@ -11,10 +11,6 @@ IGNORE_FILES = [".gitignore"]
 
 T = TypeVar('T', bound='RepoFile')
 class RepoFile:
-    class TEEEESSSTT:
-        def test(self):
-            pass
-
     def __init__(self, path: Path):
         self._path = path
         self._is_file = self._path.is_file()

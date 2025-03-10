@@ -25,9 +25,11 @@ class Agent:
     def answer(self, q: Query) -> dict:
         q.set_status(QueryStatus.GEN_README)
 
-        readme = self.repo.readme
-        system, user = get_readme_summarization_prompt(readme.read() if readme is not None else "", q.query)
-        readme = self.large_llm.prompt(system, user)
+        if self.codedb.readme != "":
+            system, user = get_readme_summarization_prompt(self.codedb.readme)
+            readme = self.large_llm.prompt(system, user)
+        else:
+            readme = ""
 
         q.set_status(QueryStatus.GEN_CODE_CONTEXT)
 
@@ -64,16 +66,17 @@ class Agent:
             d[f"{result.rec.path}:{result.rec.name}"] = result.rec
 
         q.set_status(QueryStatus.ANSWERING)
-        
+
         codes = d.values()
         splitted_codes = self._split_codes(
             codes,
-            prompt_tokens=count_tokens_prompt(*get_answer_generation_prompt(readme, query, []))
+            prompt_tokens=count_tokens_prompt(*get_answer_generation_prompt(readme, q.query, []))
         )
+
         prompts = map(
             lambda codes: get_answer_generation_prompt(
                 readme,
-                query,
+                q.query,
                 map(
                     lambda x: x.body,
                     codes
