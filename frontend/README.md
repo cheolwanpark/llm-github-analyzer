@@ -1,54 +1,54 @@
-# React + TypeScript + Vite
+# GitHub Repo Analyzer
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is a **Vite + React** application for analyzing GitHub repositories. It provides insights into repository structures, contributions, and more. You can chat with it about the repo too.
 
-Currently, two official plugins are available:
+## 🚀 Setup Instructions
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 1. Clone the Repository
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```sh
+git clone https://github.com/yourusername/github-repo-analyzer.git
+cd github-repo-analyzer
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. Install Dependencies
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+```sh
+npm install
 ```
+
+### 3. Start the Development Server
+
+```sh
+npm run dev
+```
+
+This will start the app in development mode. The default URL is `http://localhost:5173/`.
+
+### 4. Build for Production
+
+```sh
+npm run build
+```
+
+The production-ready files will be generated in the `dist/` folder.
+
+### 5. Preview the Build (Optional)
+
+```sh
+npm run preview
+```
+
+This serves the built project locally for testing.
+
+## 📜 License
+
+This project is licensed under the MIT License.
+
+## 🤝 Contributing
+
+Pull requests are welcome! Open an issue for bug reports or feature requests.
+
+## ⭐ Acknowledgments
+
+Built using **Vite**, **React**, and **GitHub API**.
