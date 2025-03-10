@@ -1,6 +1,6 @@
 import re
 import json
-from typing import Optional, List, Dict, Type, TypeVar
+from typing import Optional, List, Dict, Type, TypeVar, Union
 from github import Github
 from git import Repo
 from pathlib import Path
@@ -42,6 +42,10 @@ class RepoFile:
     
     def to_json(self, indent=None) -> str:
         return json.dumps(self.to_dict(), indent=indent)
+
+    def read(self, mode = 'r') -> Union[str, bytes]:
+        with open(self.path, mode=mode) as f:
+            return f.read()
 
     @property
     def path(self) -> str:
@@ -100,6 +104,12 @@ class Repository:
     @property
     def root(self) -> RepoFile:
         return RepoFile(self.repo_path)
+    
+    @property
+    def readme(self) -> Optional[RepoFile]:
+        filtered = list(filter(lambda x: "README" in x, self.files))
+        filtered.sort(key=lambda x: len(x))
+        return RepoFile(Path(filtered[0])) if len(filtered) > 0 else None
     
     @property
     def paths(self) -> List[str]:

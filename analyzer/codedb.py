@@ -1,10 +1,8 @@
-import tiktoken
 from concurrent.futures import ThreadPoolExecutor
-import json
 import numpy as np
 from dataclasses import dataclass, asdict
 from typing import Union
-from redis.commands.search.field import TextField, TagField, VectorField
+from redis.commands.search.field import VectorField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 from redis.commands.search import Search
 from redis.commands.search.query import Query
@@ -14,51 +12,14 @@ from repo import Repository
 from parsing import parse, CodeChunk, ClassChunk, FunctionChunk
 from common.redis import get_redis
 from llm import LLM
-
-enc = tiktoken.encoding_for_model("gpt-4o")
-
-def _encode(s: str) -> list[int]:
-    return enc.encode(s, disallowed_special=())
-
-def _count_tokens(s: str):
-    return len(_encode(s))
+from prompt import get_summarization_prompt, count_tokens, sep_token
 
 def _get_llm(system: str, user: str):
-    len = _count_tokens(system) + _count_tokens(user)
+    len = count_tokens(system) + count_tokens(user)
     if len > 32*1000:
         return LLM(model="llama3.3-70b-instruct-fp8")
     else:
         return LLM(model="qwen25-coder-32b-instruct")
-
-
-def _get_summarization_prompt(chunks: list[Union[FunctionChunk, ClassChunk]]) -> tuple[str, str]:
-    system = \
-'''You are a code summarizer for a retrieval augmented generation (RAG) system. Your task is to analyze each provided code block—which may contain functions, classes, or other programming constructs—and generate a concise yet information-rich summary. Each summary should capture:
-- The primary purpose of the code.
-- Key functionalities, inputs, and outputs.
-- Significant algorithms, design patterns, or data structures used.
-- Noteworthy implementation details or constraints.
-
-The code blocks are provided as text with each block delimited by the markers `<|START|>` and `<|END|>`. Use these markers to identify and extract each code block for analysis.
-
-**Important:** Your final output must be a single string containing the summaries for all code blocks separated by the delimiter `<|sep|>`, and no additional text or information.
-**Important:** The number of summaries must be same with the number of code blocks.
-'''
-
-    chunks = map(lambda chunk: f"<|START|>{chunk.body}<|END|>", chunks)
-    chunks = "\n".join(chunks)
-    user = \
-f'''Please generate summaries for the following text containing multiple code blocks. Each code block is delimited by `<|START|>` and `<|END|>` markers. For every code block, produce a summary that includes all the critical information such as what the code does, how it does it, key functions or classes, and any important details that would be useful for retrieval and query purposes. Ensure that the summaries are concise yet rich in detail.
-
-Remember: The final output must strictly be a single string with each summary separated by the delimiter `<|sep|>` and should not include any extra text or information.
-
-Example Output:
-Function 'calculate_factorial' computes the factorial of a number using recursion and handles edge cases effectively. <|sep|> Class 'BinarySearchTree' implements a binary search tree with methods for node insertion, deletion, and search, while supporting in-order traversal for sorted output.
-
-Text with Code Blocks:
-{chunks}
-'''
-    return system, user
 
 @dataclass
 class CodeRecord:
@@ -94,7 +55,7 @@ class CodeDB:
         self.index = self._build(threads)
     
     def search(self, query: str, n: int = 1) -> list[QueryResult]:
-        encoded_query = self._encode([query])[0]
+        encoded_query = self._encode([query.strip()])[0]
         query = (
             Query(f"(*)=>[KNN {n} @embedding $query_vector AS score]")
                 .sort_by("score")
@@ -138,11 +99,12 @@ class CodeDB:
         recs = self._extract_records(parse(self.repo))
         splitted_recs = self._split_chunks(recs)
 
-        def generate_descriptions(bodies: list[Union[FunctionChunk, ClassChunk]]):
-            system, user = _get_summarization_prompt(bodies)
+        def generate_descriptions(recs: list[CodeRecord]):
+            bodies = list(map(lambda rec: rec.body, recs))
+            system, user = get_summarization_prompt(bodies)
             llm = _get_llm(system, user)
             result = llm.prompt(system, user)
-            result = result.split("<|sep|>")
+            result = result.split(sep_token)
             return result if len(result) == len(bodies) else [""]*len(bodies)
 
         print("generate descriptions")
@@ -217,7 +179,7 @@ class CodeDB:
         sub = []
         tokens = 0
         for chunk in chunks:
-            cnt = _count_tokens(chunk.body)
+            cnt = count_tokens(chunk.body)
             if tokens + cnt > max_tokens:
                 r.append(sub)
                 sub = [chunk]

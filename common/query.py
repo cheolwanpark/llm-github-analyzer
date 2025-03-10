@@ -6,7 +6,9 @@ from .redis import get_redis
 
 class QueryStatus(Enum):
     REQUESTED = "REQUESTED"
-    PROCESSING = "PROCESSING"
+    GEN_README = "GEN_README"
+    GEN_CODE_CONTEXT = "GEN_CODE_CONTEXT"
+    ANSWERING = "ANSWERING"
     DONE = "DONE"
     ERROR = "ERROR"
 
@@ -20,7 +22,7 @@ class QueryResult:
             result = d["result"]
         )
 
-    def __init__(self, query: str, result: str):
+    def __init__(self, query: str, result: dict):
         self.query = query
         self.result = result
     
