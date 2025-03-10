@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Message, RepoContext } from "./types";
 import Header from "./components/Header";
 import WelcomeScreen from "./components/WelcomeScreen";
@@ -107,6 +107,23 @@ const App: React.FC = () => {
     setInput("");
   };
 
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Handle focusing on the ChatInput when typing anywhere
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab" && inputRef.current) {
+        inputRef.current.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-gray-100 font-sans">
       <Header isAnalyzing={introStep} onReset={handleReset} />
@@ -121,7 +138,15 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {!introStep && <ChatInput input={input} setInput={setInput} onSubmit={handleChatSubmit} isLoading={isLoading} />}
+      {!introStep && (
+        <ChatInput
+          input={input}
+          setInput={setInput}
+          onSubmit={handleChatSubmit}
+          isLoading={isLoading}
+          inputRef={inputRef}
+        />
+      )}
     </div>
   );
 };

@@ -7,18 +7,18 @@ interface ChatInputProps {
   setInput: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   isLoading: boolean;
+  inputRef: React.RefObject<HTMLTextAreaElement> | null;
 }
 
-const ChatInput: React.FC<ChatInputProps> = ({ input, setInput, onSubmit, isLoading }) => {
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-
+const ChatInput: React.FC<ChatInputProps> = ({ input, setInput, onSubmit, isLoading, inputRef }) => {
   // Adjust textarea height based on content
   useEffect(() => {
+    if (!inputRef) return;
     if (inputRef.current) {
       inputRef.current.style.height = "24px";
       inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
     }
-  }, [input]);
+  }, [input, inputRef]);
 
   return (
     <div className="bg-gray-800 border-t border-gray-700 p-4">
