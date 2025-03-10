@@ -42,6 +42,7 @@ def _get_summarization_prompt(chunks: list[Union[FunctionChunk, ClassChunk]]) ->
 The code blocks are provided as text with each block delimited by the markers `<|START|>` and `<|END|>`. Use these markers to identify and extract each code block for analysis.
 
 **Important:** Your final output must be a single string containing the summaries for all code blocks separated by the delimiter `<|sep|>`, and no additional text or information.
+**Important:** The number of summaries must be same with the number of code blocks.
 '''
 
     chunks = map(lambda chunk: f"<|START|>{chunk.body}<|END|>", chunks)
