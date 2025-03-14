@@ -1,1 +1,4 @@
 .python-version
+*.rdb
+api_key.txt
+.DS_Store

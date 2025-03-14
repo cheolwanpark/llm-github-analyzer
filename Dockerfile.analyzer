@@ -13,6 +13,7 @@ COPY analyzer/*.py .
 COPY analyzer/requirements.txt .
 COPY common/*.py ./common/
 COPY common/requirements.txt ./common/requirements.txt
+ADD analyzer/sentence-transformer sentence-transformer
 
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
