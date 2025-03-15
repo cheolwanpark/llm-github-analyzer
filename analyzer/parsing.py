@@ -135,7 +135,7 @@ def parse_code(file: RepoFile) -> CodeChunk:
     traverse(tree.root_node)
 
     return CodeChunk(
-        file.path,
+        file.relpath,
         file.name,
         imports,
         classes,
@@ -144,8 +144,7 @@ def parse_code(file: RepoFile) -> CodeChunk:
 
 def parse(repo: Repository) -> list[CodeChunk]:
     chunks = []
-    for path in repo.files:
-        f = RepoFile(Path(path))
+    for f in repo.files:
         if not f.is_file or f.type != ".py":
             continue
         chunks.append(parse_code(f))

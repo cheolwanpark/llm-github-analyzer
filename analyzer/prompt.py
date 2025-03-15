@@ -1,5 +1,6 @@
-from typing import Iterable
+from typing import Iterable, Optional
 import tiktoken
+import re
 
 _enc = tiktoken.encoding_for_model("gpt-4o")
 
@@ -11,6 +12,13 @@ def count_tokens(s: str):
 
 def count_tokens_prompt(system: str, user: str):
     return count_tokens(system) + count_tokens(user)
+
+def get_between(s: str, start: str, end: str) -> Optional[str]:
+    match = re.search(f"(?<={start})([\s\S]*?)(?={end})", s)
+    return match.group(0) if match else None
+
+def get_content(s: str, tag: str) -> Optional[str]:
+    return get_between(s, f"<{tag}>", f"<\/{tag}>")
 
 sep_token = '###'
 
@@ -42,72 +50,173 @@ Text with Code Blocks:
     return system, user
 
 def get_codedb_query_generation_prompt(query: str, readme: str, answer_n: int) -> tuple[str, str]:
-    system = \
-f'''You are an assistant that transforms a user query along with a summarized README into one or more RAG queries for code similarity search. Use common programming knowledge not explicitly mentioned in the query—such as programs typically starting at a main function or web servers having an app instance with GET and POST endpoints—to enrich the result. Incorporate key details from the summarized README to guide your transformation. The output should align with the detail level found in code descriptions (for example, DTO definitions, REST endpoint implementations, or utility function logic) and be vague enough to capture similar code structures while excluding unrelated documentation. You may generate up to {answer_n} queries separated by {sep_token}.
-'''
+    system = "You are an AI assistant specializing in generating search sentences for a vector database containing code summaries. Your task is to create search sentences that will help find relevant code summaries in a GitHub repository analyzer."
     user = \
-f'''Below is the summarized README content:
+f'''First, review the summarized README of the repository:
 
+<readme_summary>
 {readme}
+</readme_summary>
 
-User Query: {query}
+Now, consider the user's query:
 
-Convert the following user query and summarized README into one or more RAG queries tailored for retrieving code descriptions from a vector database. Output your result as a single query or multiple queries separated by {sep_token}.
-'''
+<user_query>
+{query}
+</user_query>
+
+Your task is to generate up to {answer_n} distinct search sentences based on the user's query and the context provided in the README summary. Each search sentence should help find relevant code summaries in the vector database.
+
+When creating the search sentences, follow these guidelines:
+1. Keep each sentence vague enough, as we don't know exactly which summaries are in the vector database.
+2. Incorporate common knowledge related to the query if the user's question doesn't provide enough information.
+3. Avoid hallucination or making up specific details not present in the query or README summary.
+4. Focus on key concepts, functions, or components mentioned in the query or README that are likely to be present in code summaries.
+5. Use general programming terms and concepts that are likely to appear in code summaries.
+
+Before providing your final output, wrap your thought process in <search_sentence_generation> tags. Follow these steps:
+1. List key concepts from the README summary and user query.
+2. Brainstorm potential search angles based on these concepts.
+3. Draft initial search sentences.
+4. Refine the sentences, ensuring they adhere to the guidelines provided.
+5. Evaluate each sentence against the guidelines, noting how well it meets each criterion.
+
+It's OK for this section to be quite long.
+
+<search_sentence_generation>
+[Your thought process for generating and refining search sentences]
+</search_sentence_generation>
+
+After your thought process, provide your final search sentences within <search_sentences> tags. Separate each sentence with "{sep_token}". Ensure that you generate at least one sentence, but no more than {answer_n} sentences.
+
+Example output structure (do not use this content, it's just to illustrate the format):
+<search_sentences>
+Find code related to user authentication{sep_token}Locate database connection implementations{sep_token}Search for API endpoint definitions
+</search_sentences>'''
     return system, user
 
-def get_codedb_query_generation_prompt_from_codes(bodies: Iterable[str], readme: str, answer_n: int) -> tuple[str, str]:
-    bodies = sep_token.join(bodies)
-    system = \
-f'''You are an assistant that generates RAG query sentences from provided code bodies and a summarized readme of the project. Your queries will be used in a similarity search with a vector database containing code descriptions only (e.g., class definitions, function summaries, endpoint descriptions). Analyze the given code bodies (delimited by the delimiter `{sep_token}`) and the summarized readme text and generate queries that capture the code’s functionality, structure, and purpose. Use common programming knowledge (for example, noting that programs generally start at main, or that web servers typically define app instances with GET/POST endpoints) to enhance the query. Generate up to {answer_n} distinct queries, each in a single complete sentence. Separate multiple queries with the token {sep_token}. Do not include any additional text beyond the queries. Ensure your queries are strictly related to code descriptions and the summarized readme, and avoid including irrelevant or non-code documentation details.
-'''
+def get_readme_summarization_prompt(readme: str, query: str) -> tuple[str, str]:
+    system = "You are tasked with summarizing a README file for a GitHub project. This summary will be used to enhance user prompts and generate search sentences for a vector database. Your goal is to provide an accurate and concise summary based on the content of the README and the user's query."
     user = \
-f'''Below is the summarized README content:
+f'''Here is the content of the README file:
 
+<readme>
 {readme}
+</readme>
 
-Below is the code bodies:
+Your task is to summarize this README file, keeping the following guidelines in mind:
 
-{bodies}
+1. Focus on extracting key information that is relevant to understanding the project, its purpose, features, and usage.
+2. Avoid any form of hallucination or adding information not present in the original README.
+3. Be concise but comprehensive, capturing the essence of the project.
+4. Pay attention to any specific sections like installation instructions, usage examples, or API documentation if present.
 
-Given the following code bodies delimited by the delimiter `{sep_token}` and a summarized readme, generate one or more RAG query sentences that will be used to retrieve similar code descriptions. The output must be a single query or multiple queries separated by {sep_token}, without any quotes or extra information.
-'''
+Consider the following user query when creating your summary:
+
+<user_query>
+{query}
+</user_query>
+
+Tailor your summary to address aspects of the README that are most relevant to this query. Pull out information that directly relates to or answers the user's question.
+
+Provide your summary in the following format:
+
+<summary>
+[Insert your concise summary here, focusing on information relevant to the user query]
+</summary>
+
+<key_points>
+1. [First key point relevant to the user query]
+2. [Second key point relevant to the user query]
+3. [Continue with additional key points as needed]
+</key_points>
+
+Remember, your summary and key points should only contain information present in the original README. The search terms should be concise phrases or keywords that capture the main concepts discussed in the README and are relevant to the user's query.'''
     return system, user
 
-def get_readme_summarization_prompt(readme: str) -> tuple[str, str]:
-    system = \
-'''You are an expert at summarizing README files based solely on the provided content. Your task is to produce a clear, well-structured markdown summary that includes only the information explicitly present in the README file. Do not add any details or assumptions beyond what is given. Focus solely on presenting the key points and essential details of the README.
-'''
+def get_answer_generation_prompt(query: str, output_format: str, readme: str, directories: Iterable[str], codes: Iterable) -> tuple[str, str]:
+    directories = "\n".join(map(lambda dir: f"- {dir}", directories))
+    code_snippets = "\n".join(map(
+        lambda x: f'<code_snippet path="{x.path}" name={x.name}>{x.body}</code_snippet>',
+        codes
+    ))
+    system = "You are an AI assistant specialized in analyzing GitHub repositories. Your task is to generate an answer to a user's query about a specific GitHub project based on the provided information. You must strictly adhere to the given context and avoid any speculation or inclusion of information not explicitly provided."
     user = \
-f'''Below is the project's README content:
+f'''Here's the information you have:
 
+<readme_summary>
 {readme}
+</readme_summary>
 
-Generate a summarized version of the README that captures all the essential information using only the content from the provided README file.
-'''
+<directory_list>
+{directories}
+</directory_list>
+
+<code_snippets>
+{code_snippets}
+</code_snippets>
+
+The user's query is:
+<user_query>
+{query}
+</user_query>
+
+To answer the query, follow these steps:
+
+1. Carefully analyze the provided README summary, directory list (exclude hidden directories starts with .), and code snippets.
+2. Focus only on the information directly related to the user's query.
+3. If the query cannot be answered with the given information, exclude that part from answer.
+4. Do not make assumptions or include any information not present in the provided context.
+5. Use specific references to the code snippets when relevant. Refer to each snippet using its name and path. You can also directly include the body of code snippets. 
+
+Format your response according to the following structure:
+<output_format>
+{output_format}
+</output_format>
+
+Remember:
+- Stick strictly to the provided information.
+- Do not hallucinate or include any details not explicitly given.
+- If you cannot answer the query with the available information, say so clearly.
+- Place your response between '<answer>' and '</answer>'
+
+Now, please analyze the given information and provide your answer to the user's query.'''
     return system, user
 
-def get_answer_generation_prompt(readme: str, query: str, bodies: Iterable[str]) -> tuple[str, str]:
-    bodies = sep_token.join(bodies)
-    system = \
-f'''You are provided with context that includes a summarized README and related code bodies. The code bodies are delimited by the token {sep_token}. The summarized README contains key project details such as purpose, usage instructions, and important notes, while the code bodies consist of relevant functions and classes.
-
-Your task is to answer the following user query by integrating and using all necessary details from the provided context. Ensure your answer is concise yet complete, drawing on both the summarized README and the code bodies. Maintain clarity and adhere to any formatting guidelines provided.
-'''
+def get_user_query_enhance_prompt(query: str, readme: str):
+    system = 'You are an AI assistant tasked with enhancing user prompts for a GitHub project analyzer product. Your goal is to translate vague or general user prompts into more specific, structured prompts that will generate accurate and relevant information about a GitHub project.'
     user = \
-f'''Answer the following query using the context provided below. Your answer must be concise and contain all the information requested.
+f'''First, I will provide you with a summary of the project's README:
 
-User Query: {query}
-
-Context:
-Summarized README:
-
+<readme_summary>
 {readme}
+</readme_summary>
 
-Code Bodies:
+Keep in mind the following constraints and requirements:
+1. The enhanced prompt must generate structured output.
+2. Only the summarized README, list of directories, and related code chunks (functions and classes body) are available to generate answers.
+3. Do not try to generate any response that cannot be answered with the given context (summarized README, list of directories, and related code chunks).
+4. The user prompt may be vague or general, so your task is to make it more specific and actionable.
 
-{bodies}
+To enhance the user prompt, follow these steps:
+1. Analyze the user prompt to identify the main topic or question.
+2. Determine which aspects of the project (e.g., structure, functionality, dependencies) the prompt is likely referring to.
+3. Incorporate relevant keywords or concepts from the README summary into the enhanced prompt.
+4. Structure the prompt to request specific, actionable information that can be derived from the available context.
+5. Ensure the enhanced prompt will generate a response that can be presented in a structured format (e.g., lists, tables, or categorized sections).
 
-Please ensure your response is complete and leverages the context provided.
+Generate your enhanced prompt using the following format:
+<enhanced_prompt>
+[Your enhanced prompt here, structured to generate a specific and actionable response]
+</enhanced_prompt>
+
+<output_format>
+[Specify the desired output format for the response, such as a list, table, or categorized sections]
+</output_format>
+
+Now, please enhance the following user prompt:
+
+<user_prompt>
+{query}
+</user_prompt>
 '''
     return system, user

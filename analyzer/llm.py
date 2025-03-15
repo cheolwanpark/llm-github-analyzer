@@ -17,12 +17,13 @@ class LLM:
         )
         self.model = model
     
-    def prompt(self, system: str, user: str) -> str:
+    def prompt(self, system: str, user: str, temperature: int = 0.1) -> str:
         response = self.client.chat.completions.create(
             messages=[
                 {"role": "system", "content": system},
                 {"role": "user", "content": user}
             ],
-            model=self.model
+            model=self.model,
+            temperature=temperature
         )
         return response.choices[0].message.content

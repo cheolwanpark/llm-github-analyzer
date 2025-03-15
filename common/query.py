@@ -7,6 +7,7 @@ from .redis import get_redis
 class QueryStatus(Enum):
     REQUESTED = "REQUESTED"
     GEN_README = "GEN_README"
+    ENHANCE_PROMPT = "ENHANCE_PROMPT"
     GEN_CODE_CONTEXT = "GEN_CODE_CONTEXT"
     ANSWERING = "ANSWERING"
     DONE = "DONE"

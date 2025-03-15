@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+import threading
 import numpy as np
 from dataclasses import dataclass, asdict
 from typing import Union
@@ -87,6 +88,10 @@ class CodeDB:
     def readme(self) -> str:
         return self.redis.get(name=self._readme_key)
     
+    @property
+    def directories(self) -> list[str]:
+        return self.redis.lrange(name=self._directories_key, start=0, end=-1)
+    
     def _encode(self, s: list[str]) -> list[list[np.float32]]:
         return self.embedder.encode(
             s,
@@ -102,34 +107,40 @@ class CodeDB:
         print("saving readme")
         readme = self.repo.readme.read() if self.repo.readme is not None else ""
         self.redis.set(name=self._readme_key, value=readme)
+
+        print("saving directories")
+        directories = map(
+            lambda x: x.relpath,
+            self.repo.directories
+        )
+        self.redis.rpush(self._directories_key, *directories)
         
         print("parsing repository")
         recs = self._extract_records(parse(self.repo))
         splitted_recs = self._split_chunks(recs)
 
+        print("generate descriptions")
+
+        lock = threading.Lock()
+        done = 0
+        total = len(splitted_recs)
         def generate_descriptions(recs: list[CodeRecord]):
+            nonlocal done
             bodies = list(map(lambda rec: rec.body, recs))
             system, user = get_summarization_prompt(bodies)
             llm = _get_llm(system, user)
-            result = llm.prompt(system, user)
-            result = result.split(sep_token)
-            return result if len(result) == len(bodies) else None
-
-        print("generate descriptions")
+            while True:
+                result = llm.prompt(system, user)
+                result = result.split(sep_token)
+                if len(result) == len(bodies):
+                    lock.acquire()
+                    done += 1
+                    print(f'{done}/{total} done')
+                    lock.release()
+                    return result
+        
         with ThreadPoolExecutor(max_workers=threads) as executor:
-            remain = list(range(len(splitted_recs)))
-            descriptions = [None] * len(splitted_recs)
-            while len(remain) > 0:
-                remain_recs = [splitted_recs[idx] for idx in remain]
-                generated = list(executor.map(generate_descriptions, remain_recs))
-                failues = []
-                for i, idx in enumerate(remain):
-                    if generated[i] is None:
-                        failues.append(idx)
-                    else:
-                        descriptions[idx] = generated[i]
-                print(f'failed {len(failues)}/{len(remain)}')
-                remain = failues
+            descriptions = executor.map(generate_descriptions, splitted_recs)
 
         print("encode descriptions")
         descriptions = sum(descriptions, [])
@@ -155,11 +166,6 @@ class CodeDB:
         
         print("build index for searching")
         schema = (
-            # TextField("$.path", as_name="path", no_stem=True, no_index=True,),
-            # TagField("$.type", as_name="type", no_index=True),
-            # TextField("$.name", as_name="name", no_stem=True, no_index=True),
-            # TextField("$.body", as_name="body", no_stem=True, no_index=True),
-            # TextField("$.description", as_name="description", no_stem=True, no_index=True),
             VectorField(
                 "$.embedding",
                 "FLAT",
@@ -201,7 +207,7 @@ class CodeDB:
         tokens = 0
         for chunk in chunks:
             cnt = count_tokens(chunk.body)
-            if tokens + cnt > max_tokens:
+            if tokens + cnt > max_tokens or len(sub) >= 16:
                 r.append(sub)
                 sub = [chunk]
                 tokens = cnt
@@ -217,6 +223,9 @@ class CodeDB:
     @property
     def _readme_key(self) -> str:
         return f"{self._redis_prefix}readme"
+    @property
+    def _directories_key(self) -> str:
+        return f"{self._redis_prefix}dirs"
     @property
     def _redis_index_name(self) -> str:
         return f"{self._redis_prefix}index"

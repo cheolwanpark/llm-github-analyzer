@@ -4,6 +4,7 @@ from typing import Optional, List, Dict, Type, TypeVar, Union
 from github import Github
 from git import Repo
 from pathlib import Path
+import os
 
 REPO_PATH = "./repo"
 IGNORE_DIRS = [".git"]
@@ -47,6 +48,9 @@ class RepoFile:
     def path(self) -> str:
         return str(self._path.resolve())
     @property
+    def relpath(self) -> str:
+        return str(os.path.relpath(self.path, REPO_PATH))
+    @property
     def name(self) -> str:
         return self._name
     @property
@@ -87,15 +91,15 @@ class Repository:
         else:
             self.cloned_repo = Repo.clone_from(self.repo.clone_url, REPO_PATH)
 
-    def get_paths(self, f = None) -> List[str]:
-        paths = []
+    def get_all(self, f = None) -> List[RepoFile]:
+        r = []
         def dfs(node: RepoFile):
             if f is None or f(node):
-                paths.append(node.path)
+                r.append(node)
             for entry in node.entries:
                 dfs(entry)
         dfs(self.root)
-        return paths
+        return r
 
     @property
     def root(self) -> RepoFile:
@@ -103,21 +107,21 @@ class Repository:
     
     @property
     def readme(self) -> Optional[RepoFile]:
-        filtered = list(filter(lambda x: "README" in x, self.files))
-        filtered.sort(key=lambda x: len(x))
-        return RepoFile(Path(filtered[0])) if len(filtered) > 0 else None
+        filtered = list(filter(lambda x: "README" in x.path, self.files))
+        filtered.sort(key=lambda x: len(x.path))
+        return filtered[0] if len(filtered) > 0 else None
     
     @property
-    def paths(self) -> List[str]:
-        return self.get_paths()
+    def all(self) -> List[RepoFile]:
+        return self.get_all()
 
     @property
-    def directories(self) -> List[str]:
-        return self.get_paths(lambda f: f.is_dir)
+    def directories(self) -> List[RepoFile]:
+        return self.get_all(lambda f: f.is_dir)
     
     @property
-    def files(self) -> List[str]:
-        return self.get_paths(lambda f: f.is_file)
+    def files(self) -> List[RepoFile]:
+        return self.get_all(lambda f: f.is_file)
 
     @staticmethod
     def extract_id(url: str) -> Optional[str]:
