@@ -5,48 +5,80 @@ import Header from "./components/Header";
 import WelcomeScreen from "./components/WelcomeScreen";
 import MessageList from "./components/MessageList";
 import ChatInput from "./components/ChatInput";
-import { fetchRepoData, generateResponse } from "./services/githubService";
+import {
+  fetchQueryAnswer,
+  fetchRepoData,
+  generateResponse,
+  initializeAnalyzer,
+  submitQuery,
+  waitForAnalyzerReady,
+  waitForQueryDone,
+} from "./services/githubService";
+
+import { WELCOME_PROMPT } from "./prompts";
 
 const App: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [repo, setRepo] = useState<RepoContext | null>(null);
   const [introStep, setIntroStep] = useState<boolean>(true);
+
+  const [repoAnalyzerID, setRepoAnalyzerID] = useState<string>("");
 
   // Handle initial repo URL submission
   const handleRepoSubmit = async (url: string) => {
+    // setIntroStep(false);
+
+    // const content = `A paragraph with *emphasis* and **strong importance**.
+
+    // > A block quote with ~strikethrough~ and a URL: https://reactjs.org.
+
+    // * Lists
+    // * [ ] todo
+    // * [x] done
+
+    // A table:
+
+    // | a | b |
+    // | - | - |
+    // `;
+
+    // const welcomeMessage: Message = {
+    //   id: Date.now().toString(),
+    //   role: "assistant",
+    //   content: content,
+    // };
+    // setMessages([welcomeMessage]);
+    // return;
+
     if (!url.trim() || !url.includes("github.com/")) {
-      setMessages([
-        {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: "Please enter a valid GitHub repository URL (e.g., https://github.com/facebook/react)",
-        },
-      ]);
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const repoData = await fetchRepoData(url);
-      setRepo(repoData);
+      const analyzerID = await initializeAnalyzer(url);
+      setRepoAnalyzerID(analyzerID);
+      console.log("analyzer id", analyzerID);
+
+      const isReady = await waitForAnalyzerReady(analyzerID);
+      if (!isReady) {
+        console.error("Analyzer never reached READY state.");
+        return;
+      }
+      setIntroStep(false);
+
+      const answer = await fetchQueryAnswer(analyzerID, WELCOME_PROMPT);
+      console.log("answer:", answer);
 
       const welcomeMessage: Message = {
         id: Date.now().toString(),
         role: "assistant",
-        content: `I've analyzed the GitHub repository **${
-          repoData.name
-        }**.\n\nThis repository has ${repoData.stars.toLocaleString()} stars, ${repoData.forks.toLocaleString()} forks, and ${
-          repoData.issues
-        } open issues. It was last updated ${
-          repoData.lastUpdated
-        }.\n\nWhat would you like to know about this repository?`,
+        content: answer,
       };
 
       setMessages([welcomeMessage]);
-      setIntroStep(false);
     } catch (error) {
       setMessages([
         {
@@ -63,8 +95,7 @@ const App: React.FC = () => {
   // Handle chat messages after repo is set
   const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!input.trim() || !repo) return;
+    if (!input.trim() || !repoAnalyzerID) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -77,12 +108,13 @@ const App: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const responseContent = await generateResponse(input, repo);
+      const answer = await fetchQueryAnswer(repoAnalyzerID, input);
+      console.log("answer:", answer);
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: responseContent,
+        content: answer,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -101,7 +133,7 @@ const App: React.FC = () => {
 
   // Reset the conversation and start with a new repo
   const handleReset = () => {
-    setRepo(null);
+    setRepoAnalyzerID("");
     setIntroStep(true);
     setMessages([]);
     setInput("");

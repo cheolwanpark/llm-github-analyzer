@@ -7,7 +7,7 @@ interface ChatInputProps {
   setInput: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   isLoading: boolean;
-  inputRef: React.RefObject<HTMLTextAreaElement> | null;
+  inputRef: React.RefObject<HTMLTextAreaElement | null>;
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({ input, setInput, onSubmit, isLoading, inputRef }) => {

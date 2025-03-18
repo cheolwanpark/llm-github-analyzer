@@ -2,3 +2,5 @@
 *.rdb
 api_key.txt
 .DS_Store
+./redis_data
+.env

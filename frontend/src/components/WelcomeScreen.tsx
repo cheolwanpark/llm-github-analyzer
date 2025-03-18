@@ -26,7 +26,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSubmit, isLoading }) =>
         about it.
       </p>
       <form onSubmit={handleSubmit} className="w-full max-w-md">
-        <div className="relative">
+        <div className="relative flex items-center">
           <input
             type="text"
             placeholder="https://github.com/username/repository"
@@ -38,12 +38,13 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSubmit, isLoading }) =>
           <button
             type="submit"
             disabled={isLoading || !repoUrl.trim()}
-            className="absolute right-3 top-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:text-gray-500 text-white p-1 rounded-md transition-colors"
+            className="absolute right-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:text-gray-500 text-white p-1 rounded-md transition-colors"
           >
             {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <SendHorizontal className="h-5 w-5" />}
           </button>
         </div>
       </form>
+
       <p className="text-sm text-gray-500">
         Examples: https://github.com/facebook/react, https://github.com/lodash/lodash
       </p>
