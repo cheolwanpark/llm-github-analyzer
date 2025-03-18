@@ -31,18 +31,16 @@ This will start the app in development mode. The default URL is `http://localhos
 ### 4. Build for Production
 
 ```sh
-npm run build
+docker compose up
 ```
 
-The production-ready files will be generated in the `dist/` folder.
-
-### 5. Preview the Build (Optional)
+This will pull the necessary images (if not already available) and start the API.
 
 ```sh
-npm run preview
+docker compose down
 ```
 
-This serves the built project locally for testing.
+To stop the API.
 
 ## 📜 License
 
